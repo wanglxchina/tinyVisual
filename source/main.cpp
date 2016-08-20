@@ -7,11 +7,20 @@
 int test_video_version(int dev_fd)
 {
     int ret = 0;
-   char dummy[256];
+   //char dummy[256];
+   v4l2_capability cap;
 
-    if (-1 != ioctl(dev_fd,VIDIOC_QUERYCAP,dummy)) {
+    if (-1 != ioctl(dev_fd,VIDIOC_QUERYCAP,&cap)) {
         ret = 2;
     }
+    printf("driver:%s \n \
+    card:%s\n \
+    bus_info:%s\n \
+    version:%d\n \
+    capabilities:%d\n \
+    device_caps:%d \n \
+    reserved:%s",cap.driver,cap.card,cap.bus_info,
+    cap.version,cap.capabilities,cap.device_caps,cap.reserved);
     return ret;
 }
 int main()
