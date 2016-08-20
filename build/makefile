@@ -8,21 +8,21 @@ PROGRAM = tinyvisual
 PROPATH = ../bin
 
 #The source file directory 
-SRCDIR = ../source
+SRCDIR = ../source ../util
 
 #excluded files from SRCDIR when compile
 EXCLUDESRC = 
 
 #Attached header file directory
-INCLUDEDIR = -I ./ -I/home/wanglx/my/tmp/av-lib/ffmpeg/include
+INCLUDEDIR = -I ./ -I/home/wanglx/my/tmp/av-lib/ffmpeg/include -I ../util
 
 #Compiler and its parameters
 CC = g++
-CMYFLAGS = -Wall -rdynamic -std=c++11 -L/home/wanglx/my/tmp/av-lib/ffmepg/lib
+CMYFLAGS = -Wall -rdynamic -std=c++11   
 
 #Linker and its parameters
 #LD = ld
-#LDFLAGS = 
+LDFLAGS = -lpthread
 
 #Parameters to generate dependency file 
 DEPENDFLAG = -MM
