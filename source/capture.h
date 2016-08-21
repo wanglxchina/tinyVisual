@@ -1,3 +1,10 @@
+/*
+file    : capture.h 
+descripe: 根据官网的capture.c改写的C++版,部分流程改写
+note    : 打开-->初始化-->开始-->循环采集-->停止-->逆初始化-->关闭
+date    : 2016-08-21
+author  : wanglx
+*/
 #ifndef _H_CAPTURE_H_
 #define _H_CAPTURE_H_
 #include <string>
@@ -12,6 +19,7 @@ struct v4l2buffer {
         size_t                  length;
 };
 
+typedef void(*VIDEO_DATA_PROCESSER)(const void *);
 class CaptureDevice
 {
 public:
@@ -21,6 +29,7 @@ public:
     bool Start();
     bool Stop();
     void Close();
+    void RegisteDataProcess(VIDEO_DATA_PROCESSER func);
     std::string GetLastError();
 protected:
     bool Init();
@@ -30,18 +39,18 @@ protected:
     bool InitRead(unsigned int bufferSize);
     bool InitMMap(unsigned int bufferSize);
     bool InitUserp(unsigned int bufferSize);
-    void ProcessImage(const void *  p);
     static void* DataCaptureProc(void* param);
 private:
-    std::string     m_deviceName;
-    std::string     m_lastError;
-    io_method       m_ioMethod;
-    int             m_fd;
-    bool            m_needStop;
-    bool            m_captureState;
-    v4l2buffer *    m_buffers;
-    unsigned int    m_bufferCount;
-    unsigned int    m_framesPerSecond;
-    pthread_t       m_threadId;
+    std::string             m_deviceName;
+    std::string             m_lastError;
+    io_method               m_ioMethod;
+    int                     m_fd;
+    bool                    m_needStop;
+    bool                    m_captureState;
+    v4l2buffer *            m_buffers;
+    unsigned int            m_bufferCount;
+    unsigned int            m_framesPerSecond;
+    pthread_t               m_threadId;
+    VIDEO_DATA_PROCESSER    ProcessImage;
 };
 #endif
