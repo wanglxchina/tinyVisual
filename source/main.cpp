@@ -88,13 +88,20 @@ int main()
 	memset(fbp, 0, screensize);
     printf("freebuffer open and set success!\n");
     //打开cam
+	video_cap_format_t video_cap_format;
+	video_cap_format.width = 640;
+	video_cap_format.height = 480;
+	video_cap_format.pixelformat = VIDEO_PIX_FMT_YUYV;
+	video_cap_format.isinterlaced = false;
+	video_cap_format.v_ioMethod = IO_METHOD_MMAP;
+	video_cap_format.framesPerSecond = 25;
+	video_cap_format.processer = process_image;
     const char* dev_name = "/dev/video0";
     CaptureDevice device;
-    if ( !device.Open(dev_name) )
+    if ( !device.Open(dev_name,video_cap_format) )
     {
         return -1;
     }
-    device.RegisteDataProcess(process_image);
     printf("device:%s open and set success!\n",dev_name);
     //开始采集
     if ( !device.Start() )

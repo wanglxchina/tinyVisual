@@ -18,13 +18,12 @@
 CaptureDevice::CaptureDevice():
 m_deviceName(DEFAULT_DEVICE_NAME),
 m_lastError(""),
-m_ioMethod(IO_METHOD_MMAP),
 m_fd(-1),
 m_needStop(false),
 m_captureState(false),
 m_buffers(NULL),
 m_bufferCount(0),
-m_framesPerSecond(25),
+m_field(V4L2_FIELD_NONE),
 m_threadId(0)
 {
 }
@@ -32,7 +31,7 @@ CaptureDevice::~CaptureDevice()
 {
 }
 
-bool CaptureDevice::Open(std::string deviceName)
+bool CaptureDevice::Open(const std::string deviceName,const video_cap_format_t& format)
 {
     //查询设备是否存在
     struct stat st;
@@ -56,6 +55,8 @@ bool CaptureDevice::Open(std::string deviceName)
             deviceName.c_str(), errno, strerror (errno));
             return false;
         }
+    //保存采集相关参数设置，以备初始化设备用
+    SaveForamt(format);
     return Init();
 }
 
@@ -82,7 +83,7 @@ bool CaptureDevice::Init()
         return false;
     }
     //判断制定的IO方式是否支持
-    switch( m_ioMethod )
+    switch( m_format.v_ioMethod )
     {
         case IO_METHOD_READ:
         {
@@ -136,10 +137,10 @@ bool CaptureDevice::Init()
 	unsigned int min;
     memset(&fmt,0,sizeof(fmt));
     fmt.type                = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    fmt.fmt.pix.width       = 640;//cropcap.defrect.width;
-    fmt.fmt.pix.height      = 480;//cropcap.defrect.height;
-    fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
-    fmt.fmt.pix.field       = V4L2_FIELD_NONE;//V4L2_FIELD_INTERLACED;
+    fmt.fmt.pix.width       = m_format.width;//cropcap.defrect.width;
+    fmt.fmt.pix.height      = m_format.height;//cropcap.defrect.height;
+    fmt.fmt.pix.pixelformat = m_format.pixelformat;//V4L2_PIX_FMT_YUYV;
+    fmt.fmt.pix.field       = m_field;//V4L2_FIELD_NONE;//V4L2_FIELD_INTERLACED;
     if ( -1 == ioctl(m_fd,VIDIOC_S_FMT,&fmt) )
     {
         printf("%s VIDIOC_S_FMT failed!errno:%d strerr:%s\n",m_lastError.c_str(),errno,strerror(errno));
@@ -157,7 +158,7 @@ bool CaptureDevice::Init()
         fmt.fmt.pix.sizeimage = min;
     }
     bool ret = false;
-    switch( m_ioMethod )
+    switch( m_format.v_ioMethod )
     {
         case IO_METHOD_READ:
 		    ret = InitRead (fmt.fmt.pix.sizeimage);
@@ -184,14 +185,14 @@ bool CaptureDevice::Init()
         if ( V4L2_CAP_TIMEPERFRAME == streamParm.parm.capture.capability )
         {
             streamParm.parm.capture.timeperframe.numerator = 1;
-            streamParm.parm.capture.timeperframe.denominator = m_framesPerSecond;
+            streamParm.parm.capture.timeperframe.denominator = m_format.framesPerSecond;
             if ( -1 == ioctl(m_fd,VIDIOC_S_PARM,&streamParm) )
             {
                 printf("%s VIDIOC_S_PARM failed! errno:%d strerr:%s.\n",m_deviceName.c_str(),errno,strerror(errno));
                 return false;
             }
         }
-        m_framesPerSecond = streamParm.parm.capture.timeperframe.denominator;
+        m_format.framesPerSecond = streamParm.parm.capture.timeperframe.denominator;
     }
     return true;
 }
@@ -325,7 +326,7 @@ bool CaptureDevice::Start()
     bool ret = true;
     unsigned int i = 0;
     enum v4l2_buf_type type;
-    switch( m_ioMethod )
+    switch( m_format.v_ioMethod )
     {
         case IO_METHOD_READ:
         {
@@ -451,7 +452,7 @@ bool CaptureDevice::ReadFrame()
     struct v4l2_buffer buf;
 	unsigned int i;
 
-	switch (m_ioMethod) 
+	switch (m_format.v_ioMethod) 
     {
 	    case IO_METHOD_READ:
         {
@@ -467,7 +468,7 @@ bool CaptureDevice::ReadFrame()
                     return false;
                 }
 		    }
-            ProcessImage (m_buffers[0].start);
+            m_format.processer (m_buffers[0].start);
         }
 	    break;
 	    case IO_METHOD_MMAP:
@@ -489,7 +490,7 @@ bool CaptureDevice::ReadFrame()
 			}
             assert (buf.index < m_bufferCount);
 
-	        ProcessImage (m_buffers[buf.index].start);
+	        m_format.processer  (m_buffers[buf.index].start);
 
 		    if ( -1 == ioctl (m_fd, VIDIOC_QBUF, &buf) )
             {
@@ -527,7 +528,7 @@ bool CaptureDevice::ReadFrame()
             }
 		    assert (i < m_bufferCount);
 
-    		ProcessImage ((void *) buf.m.userptr);
+    		m_format.processer  ((void *) buf.m.userptr);
 
             if ( -1 == ioctl (m_fd, VIDIOC_QBUF, &buf) )
             {
@@ -552,7 +553,7 @@ bool CaptureDevice::Stop()
     }
 
     enum v4l2_buf_type type;
-	switch ( m_ioMethod ) 
+	switch ( m_format.v_ioMethod ) 
     {
 	    case IO_METHOD_READ:
         {
@@ -578,7 +579,7 @@ bool CaptureDevice::Stop()
 void CaptureDevice::Uinit()
 {
     unsigned int i;
-	switch ( m_ioMethod )
+	switch ( m_format.v_ioMethod )
     {
 	    case IO_METHOD_READ:
         {
@@ -627,8 +628,27 @@ void* CaptureDevice::DataCaptureProc(void* param)
     cp->loop();
     return NULL;
 }
-
-void CaptureDevice::RegisteDataProcess(VIDEO_DATA_PROCESSER func)
+void CaptureDevice::SaveForamt(const video_cap_format_t& format)
 {
-    ProcessImage = func;
+    m_format.width = format.width;
+    m_format.height = format.height;
+    switch( format.pixelformat )
+    {
+        case VIDEO_PIX_FMT_YUYV:
+        {
+            m_format.pixelformat = V4L2_PIX_FMT_YUYV;
+            break;
+        }
+        default:m_format.pixelformat = V4L2_PIX_FMT_YUYV;
+    }
+    if( format.isinterlaced )
+    {
+        m_field = V4L2_FIELD_INTERLACED;
+    }
+    else
+    {
+        m_field = V4L2_FIELD_NONE;
+    }
+    m_format.v_ioMethod = format.v_ioMethod;
+    m_format.processer = format.processer;
 }
