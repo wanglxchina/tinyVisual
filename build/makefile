@@ -38,7 +38,7 @@ CFLAGS := $(CMYFLAGS) $(INCLUDEDIR)
 
 $(PROGRAM):$(OBJS)
 	@$(CC) $(filter %.o,$^) $(LDFLAGS) -o $@
-	@cp $@ $(PROPATH)
+	@cp $@ $(PROPATH)/
 	@rm $@ 
 	@echo 
 	@echo compile $(PROPATH)/$(PROGRAM) success!
