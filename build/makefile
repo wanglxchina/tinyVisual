@@ -35,8 +35,9 @@ SRCS = $(filter-out $(EXCLUDESRC),$(ALLSRCS))
 OBJS = $(SRCS:%.cpp=%.o)
 INLUDEDEPENDS = $(SRCS:%.cpp=%.d)
 CFLAGS := $(CMYFLAGS) $(INCLUDEDIR)
-
+DIREXSIT = $(shell if ! test -d $(PROPATH); then mkdir $(PROPATH);fi;)
 $(PROGRAM):$(OBJS)
+	@echo $(DIREXSIT)
 	@$(CC) $(filter %.o,$^) $(LDFLAGS) -o $@
 	@cp $@ $(PROPATH)/
 	@rm $@ 
