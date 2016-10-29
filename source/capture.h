@@ -17,6 +17,7 @@ v4l2采集需要初始化步骤
 #define _H_CAPTURE_H_
 #include <string>
 #include <pthread.h>
+#include <map>
 typedef enum {
 	IO_METHOD_READ,
 	IO_METHOD_MMAP,

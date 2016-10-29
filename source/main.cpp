@@ -5,11 +5,12 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <string.h>
+#include "log.h"
+#include "util.h"
 static int fbfd = -1;
 static char *fbp=NULL;
 static struct fb_var_screeninfo vinfo;
 static struct fb_fix_screeninfo finfo;
-
 
 inline int clip(int value, int min, int max) {
 	return (value > max ? max : value < min ? min : value);
@@ -63,30 +64,43 @@ static void process_image (const void * p){
 
 int main()
 {
+	//获取管理员权限
+	setuid(geteuid());
+	setgid(getegid());
+	//初始化log
+	char local_path[255] = {0};
+	getcwd(local_path,sizeof(local_path));
+	strcat(local_path,"/log/");
+	log_init(local_path);
+	log_printf(LOG_LEVEL_INFO,"tinyVisual start!\n");
     //打开freebuffer的fd
     fbfd = open("/dev/fb0", O_RDWR);
 	if (fbfd==-1) {
-		printf("Error: cannot open framebuffer device.errno:%d,strerror:%s\n",errno,strerror(errno));
+		log_printf(LOG_LEVEL_ERROR,"Error: cannot open framebuffer device.errno:%d,strerror:%s\n",errno,strerror(errno));
+		_my_assert(__func__,__LINE__,0);
 		return -1;
 	}
     long screensize=0;
 	if (-1==ioctl(fbfd, FBIOGET_FSCREENINFO, &finfo)) {
-		printf("Error reading fixed information.\n");
+		log_printf(LOG_LEVEL_ERROR,"Error reading fixed information.\n");
+		_my_assert(__func__,__LINE__,0);
 		return -1;
 	}
 	if (-1==ioctl(fbfd, FBIOGET_VSCREENINFO, &vinfo)) {
-		printf("Error reading variable information.\n");
+		log_printf(LOG_LEVEL_ERROR,"Error reading variable information.\n");
+		_my_assert(__func__,__LINE__,0);
 		return -1;
 	}
 	screensize = vinfo.xres * vinfo.yres * vinfo.bits_per_pixel / 8;
-    printf("freebuf vinfo.xres:%d,vinfo.yres:%d ,imagesize:%ld\n",vinfo.xres,vinfo.yres,screensize);
+    log_printf(LOG_LEVEL_INFO,"freebuf vinfo.xres:%d,vinfo.yres:%d ,imagesize:%ld\n",vinfo.xres,vinfo.yres,screensize);
 	fbp = (char *)mmap(NULL,screensize,PROT_READ | PROT_WRITE,MAP_SHARED ,fbfd, 0);
 	if ( fbp == MAP_FAILED ) {
-		printf("Error: failed to map framebuffer device to memory.\n");
+		log_printf(LOG_LEVEL_ERROR,"Error: failed to map framebuffer device to memory.\n");
+		_my_assert(__func__,__LINE__,0);
 		return -1;
 	}
 	memset(fbp, 0, screensize);
-    printf("freebuffer open and set success!\n");
+    log_printf(LOG_LEVEL_INFO,"freebuffer open and set success!\n");
     //打开cam
 	video_cap_format_t video_cap_format;
 	video_cap_format.width = 640;
@@ -100,26 +114,28 @@ int main()
     CaptureDevice device;
     if ( !device.Open(dev_name,video_cap_format) )
     {
+		_my_assert(__func__,__LINE__,0);
         return -1;
     }
-    printf("device:%s open and set success!\n",dev_name);
+    log_printf(LOG_LEVEL_INFO,"device:%s open and set success!\n",dev_name);
     //开始采集
     if ( !device.Start() )
     {
+		_my_assert(__func__,__LINE__,0);
         return -1;
     }
-    printf("device:%s start success!\n",dev_name);
+    log_printf(LOG_LEVEL_INFO,"device:%s start success!\n",dev_name);
     //等待
     usleep(20*1000*1000);
     //停止采集
-    printf("device:%s stop!\n",dev_name);
+    log_printf(LOG_LEVEL_INFO,"device:%s stop!\n",dev_name);
     device.Stop();
     //关闭cam
-    printf("device:%s close!\n",dev_name);
+    log_printf(LOG_LEVEL_INFO,"device:%s close!\n",dev_name);
     device.Close();
     //关闭fb
     if (-1 == munmap(fbp, screensize)) {
-		printf(" Error: framebuffer device munmap() failed.\n");
+		log_printf(LOG_LEVEL_INFO," Error: framebuffer device munmap() failed.\n");
 		return -1;
 	}    
     close(fbfd);

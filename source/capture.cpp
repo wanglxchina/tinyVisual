@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <asm/types.h> 
 #include <unistd.h>
+#include "log.h"
 #define DEFAULT_DEVICE_NAME "/dev/video0"
 
 CaptureDevice::CaptureDevice():
@@ -37,21 +38,21 @@ bool CaptureDevice::Open(const std::string deviceName,const video_cap_format_t& 
     struct stat st;
     if (-1 == stat(deviceName.c_str(), &st))
     {
-        printf("Cannot identify %s err:%d-->%s\n",
+        log_printf(LOG_LEVEL_ERROR,"Cannot identify %s err:%d-->%s\n",
         deviceName.c_str(),errno,strerror(errno));
         return false;
     }
     //查询设备是否为字符型设备
     if(!S_ISCHR(st.st_mode))
     {
-        printf ("%s is no device\n", deviceName.c_str());
+        log_printf(LOG_LEVEL_ERROR,"%s is no device\n", deviceName.c_str());
     }
     //以可读写和非阻塞方式打开设备
     m_fd = open (deviceName.c_str(), O_RDWR /* required */ | O_NONBLOCK, 0);
 
         if (-1 == m_fd) 
         {
-            printf ("Cannot open '%s': %d, %s\n",
+            log_printf(LOG_LEVEL_ERROR,"Cannot open '%s': %d, %s\n",
             deviceName.c_str(), errno, strerror (errno));
             return false;
         }
@@ -68,18 +69,18 @@ bool CaptureDevice::Init()
     {
         if ( EINVAL == errno )
         {
-            printf("%s is no v4l2 device\n",m_deviceName.c_str());
+            log_printf(LOG_LEVEL_ERROR,"%s is no v4l2 device\n",m_deviceName.c_str());
         }
         else
         {
-            printf("VIDIOC_QUERYCAP failed\n");
+            log_printf(LOG_LEVEL_ERROR,"VIDIOC_QUERYCAP failed\n");
         }
         return false;
     }
     //判断是否支持视频采集
     if ( !(cap.capabilities & V4L2_CAP_VIDEO_CAPTURE) )
     {
-        printf("%s is no video capture device\n",m_deviceName.c_str());
+        log_printf(LOG_LEVEL_ERROR,"%s is no video capture device\n",m_deviceName.c_str());
         return false;
     }
     //判断制定的IO方式是否支持
@@ -89,7 +90,7 @@ bool CaptureDevice::Init()
         {
             if ( !(cap.capabilities & V4L2_CAP_STREAMING) )
             {
-                printf("%s does not support streaming i/o\n",m_deviceName.c_str());
+                log_printf(LOG_LEVEL_ERROR,"%s does not support streaming i/o\n",m_deviceName.c_str());
                 return false;
             }
         }
@@ -99,7 +100,7 @@ bool CaptureDevice::Init()
         {
             if ( !(cap.capabilities & V4L2_CAP_STREAMING) )
             {
-                printf("%s does not support streaming i/o\n",m_deviceName.c_str());
+                log_printf(LOG_LEVEL_ERROR,"%s does not support streaming i/o\n",m_deviceName.c_str());
                 return false;
             }
         }
@@ -143,7 +144,7 @@ bool CaptureDevice::Init()
     fmt.fmt.pix.field       = m_field;//V4L2_FIELD_NONE;//V4L2_FIELD_INTERLACED;
     if ( -1 == ioctl(m_fd,VIDIOC_S_FMT,&fmt) )
     {
-        printf("%s VIDIOC_S_FMT failed!errno:%d strerr:%s\n",m_lastError.c_str(),errno,strerror(errno));
+        log_printf(LOG_LEVEL_ERROR,"%s VIDIOC_S_FMT failed!errno:%d strerr:%s\n",m_lastError.c_str(),errno,strerror(errno));
         return false;
     }
     //设置YUV存储格式(驱动和应用程序交换数据,计算缓冲大小)
@@ -188,7 +189,7 @@ bool CaptureDevice::Init()
             streamParm.parm.capture.timeperframe.denominator = m_format.framesPerSecond;
             if ( -1 == ioctl(m_fd,VIDIOC_S_PARM,&streamParm) )
             {
-                printf("%s VIDIOC_S_PARM failed! errno:%d strerr:%s.\n",m_deviceName.c_str(),errno,strerror(errno));
+                log_printf(LOG_LEVEL_ERROR,"%s VIDIOC_S_PARM failed! errno:%d strerr:%s.\n",m_deviceName.c_str(),errno,strerror(errno));
                 return false;
             }
         }
@@ -203,14 +204,14 @@ bool CaptureDevice::InitRead(unsigned int bufferSize)
     m_buffers = (v4l2buffer*)calloc(m_bufferCount,sizeof(*m_buffers));
     if ( !m_buffers )
     {
-        printf("calloc failed!\n");
+        log_printf(LOG_LEVEL_ERROR,"calloc failed!\n");
         return false;
     }
     m_buffers[0].length = bufferSize;
     m_buffers[0].start = malloc(bufferSize);
     if ( !m_buffers[0].start )
     {
-        printf("calloc failed!\n");
+        log_printf(LOG_LEVEL_ERROR,"calloc failed!\n");
         free(m_buffers);
         m_buffers = NULL;
         return false;
@@ -229,24 +230,24 @@ bool CaptureDevice::InitMMap(unsigned int bufferSize)
     {
         if ( EINVAL == errno )
         {
-            printf("%s does not support memory mapping\n",m_deviceName.c_str());
+            log_printf(LOG_LEVEL_ERROR,"%s does not support memory mapping\n",m_deviceName.c_str());
         } 
         else
         {
-            printf("VIDIOC_REQBUFS error\n");
+            log_printf(LOG_LEVEL_ERROR,"VIDIOC_REQBUFS error\n");
         }
         return false;
     }
     if ( req.count < 2 )
     {
-        printf("Insufficient buffer memory on %s\n",m_deviceName.c_str());
+        log_printf(LOG_LEVEL_ERROR,"Insufficient buffer memory on %s\n",m_deviceName.c_str());
         return false;
     }
     m_bufferCount = req.count;
     m_buffers = (v4l2buffer*)calloc(req.count,sizeof(*m_buffers));
     if ( !m_buffers )
     {
-        printf("calloc failed!\n");
+        log_printf(LOG_LEVEL_ERROR,"calloc failed!\n");
     }
     for ( unsigned int i = 0; i < req.count; ++i )
     {
@@ -291,11 +292,11 @@ bool CaptureDevice::InitUserp(unsigned int bufferSize)
     {
         if ( EINVAL == errno )
         {
-            printf("%s does not support user pointer.\n",m_deviceName.c_str());
+            log_printf(LOG_LEVEL_ERROR,"%s does not support user pointer.\n",m_deviceName.c_str());
         }
         else
         {
-            printf("VIDIOC_REQBUFS failed.\n");
+            log_printf(LOG_LEVEL_ERROR,"VIDIOC_REQBUFS failed.\n");
         }
         return false;
     }
@@ -303,7 +304,7 @@ bool CaptureDevice::InitUserp(unsigned int bufferSize)
     m_buffers = (v4l2buffer*)calloc(req.count,sizeof(*m_buffers));
     if ( !m_buffers )
     {
-        printf("calloc failed.\n");
+        log_printf(LOG_LEVEL_ERROR,"calloc failed.\n");
         return false;
     }
     for ( unsigned int i = 0; i < req.count; ++i )
@@ -312,7 +313,7 @@ bool CaptureDevice::InitUserp(unsigned int bufferSize)
         m_buffers[i].start   = malloc(bufferSize);
         if( !m_buffers[i].start )
         {
-            printf("malloc failed.\n");
+            log_printf(LOG_LEVEL_ERROR,"malloc failed.\n");
             //TODO release all other m_buffers[x].start
             free(m_buffers);
             m_buffers = NULL;
@@ -344,7 +345,7 @@ bool CaptureDevice::Start()
                 buf.index = i;
                 if ( -1 == ioctl(m_fd,VIDIOC_QBUF,&buf) )
                 {
-                    printf("%s VIDIOC_QBUF errno:%d strerr:%s",m_deviceName.c_str(),errno,strerror(errno));
+                    log_printf(LOG_LEVEL_ERROR,"%s VIDIOC_QBUF errno:%d strerr:%s",m_deviceName.c_str(),errno,strerror(errno));
                     ret = false;
                     break;
                 }
@@ -352,7 +353,7 @@ bool CaptureDevice::Start()
             type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
             if ( -1 == ioctl (m_fd, VIDIOC_STREAMON, &type) )
 	        {
-                printf("%s VIDIOC_STREAMON errno:%d strerr:%s",m_deviceName.c_str(),errno,strerror(errno));
+                log_printf(LOG_LEVEL_ERROR,"%s VIDIOC_STREAMON errno:%d strerr:%s",m_deviceName.c_str(),errno,strerror(errno));
                 ret = false;
                 break;
             }
@@ -370,7 +371,7 @@ bool CaptureDevice::Start()
 			    buf.length      = m_buffers[i].length;
                 if ( -1 == ioctl (m_fd, VIDIOC_QBUF, &buf) )
                 {
-                    printf("%s VIDIOC_QBUF errno:%d strerr:%s",m_deviceName.c_str(),errno,strerror(errno));
+                    log_printf(LOG_LEVEL_ERROR,"%s VIDIOC_QBUF errno:%d strerr:%s",m_deviceName.c_str(),errno,strerror(errno));
                     ret = false;
                     break;
                 }
@@ -378,7 +379,7 @@ bool CaptureDevice::Start()
             type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
             if ( -1 == ioctl (m_fd, VIDIOC_STREAMON, &type) )
 	        {
-                printf("%s VIDIOC_STREAMON errno:%d strerr:%s",m_deviceName.c_str(),errno,strerror(errno));
+                log_printf(LOG_LEVEL_ERROR,"%s VIDIOC_STREAMON errno:%d strerr:%s",m_deviceName.c_str(),errno,strerror(errno));
                 ret = false;
                 break;
             }
@@ -392,14 +393,14 @@ bool CaptureDevice::Start()
         ret = pthread_create(&m_threadId,NULL,DataCaptureProc,this);
         if ( 0 != ret )
         {
-            printf("pthread_create failed! ret:%d\n",ret);//EAGAIN or EINVAL
+            log_printf(LOG_LEVEL_ERROR,"pthread_create failed! ret:%d\n",ret);//EAGAIN or EINVAL
             ret = false;
         }
         ret = true;
     }
     else
     {
-        printf("%s %d io set failed!errno:%d,strerr:%s\n",__func__,__LINE__,errno,strerror(errno));
+        log_printf(LOG_LEVEL_ERROR,"%s %d io set failed!errno:%d,strerr:%s\n",__func__,__LINE__,errno,strerror(errno));
     }
    
     return ret;
@@ -407,7 +408,7 @@ bool CaptureDevice::Start()
 
 void CaptureDevice::loop()
 {
-    printf("Enter %s \n",__func__);
+    log_printf(LOG_LEVEL_INFO,"Enter %s \n",__func__);
     m_captureState = true;
     while( !m_needStop )
     {
@@ -429,11 +430,11 @@ void CaptureDevice::loop()
             {
                 continue;
             }
-            printf(" select error !,errno:%d,strerr:%s\n",errno,strerror(errno));
+            log_printf(LOG_LEVEL_ERROR," select error !,errno:%d,strerr:%s\n",errno,strerror(errno));
         }  
         if ( 0 == r )
         {
-            printf("select timeout,errno:%d,strerr:%s\n",errno,strerror(errno));
+            log_printf(LOG_LEVEL_ERROR,"select timeout,errno:%d,strerr:%s\n",errno,strerror(errno));
         }
 
         if ( !ReadFrame() )
@@ -464,7 +465,7 @@ bool CaptureDevice::ReadFrame()
                 } 
                 else
                 {
-                    printf("IO_METHOD_READ read failed! errno:%d,strerr:%s\n",errno,strerror(errno));
+                    log_printf(LOG_LEVEL_ERROR,"IO_METHOD_READ read failed! errno:%d,strerr:%s\n",errno,strerror(errno));
                     return false;
                 }
 		    }
@@ -484,7 +485,7 @@ bool CaptureDevice::ReadFrame()
                 } 
                 else
                 {
-                    printf("IO_METHOD_MMAP read frame failed! errno:%d,strerr:%s\n",errno,strerror(errno));
+                    log_printf(LOG_LEVEL_ERROR,"IO_METHOD_MMAP read frame failed! errno:%d,strerr:%s\n",errno,strerror(errno));
                     return false;
                 }
 			}
@@ -494,7 +495,7 @@ bool CaptureDevice::ReadFrame()
 
 		    if ( -1 == ioctl (m_fd, VIDIOC_QBUF, &buf) )
             {
-                printf("IO_METHOD_MMAP read frame failed! errno:%d,strerr:%s\n",errno,strerror(errno));
+                log_printf(LOG_LEVEL_ERROR,"IO_METHOD_MMAP read frame failed! errno:%d,strerr:%s\n",errno,strerror(errno));
                 return false;
             }
 		}
@@ -513,7 +514,7 @@ bool CaptureDevice::ReadFrame()
                 } 
                 else
                 {
-                    printf("IO_METHOD_MMAP read frame failed! errno:%d,strerr:%s\n",errno,strerror(errno));
+                    log_printf(LOG_LEVEL_ERROR,"IO_METHOD_MMAP read frame failed! errno:%d,strerr:%s\n",errno,strerror(errno));
                     return false;
                 }
 			}
@@ -532,7 +533,7 @@ bool CaptureDevice::ReadFrame()
 
             if ( -1 == ioctl (m_fd, VIDIOC_QBUF, &buf) )
             {
-                printf("IO_METHOD_MMAP read frame failed! errno:%d,strerr:%s\n",errno,strerror(errno));
+                log_printf(LOG_LEVEL_ERROR,"IO_METHOD_MMAP read frame failed! errno:%d,strerr:%s\n",errno,strerror(errno));
                 return false;
             }
         }
@@ -567,7 +568,7 @@ bool CaptureDevice::Stop()
 
 		    if ( -1 == ioctl (m_fd, VIDIOC_STREAMOFF, &type) )
             {
-                printf("VIDIOC_STREAMOFF failed.errno:%d,strerr:%s",errno,strerror(errno));
+                log_printf(LOG_LEVEL_ERROR,"VIDIOC_STREAMOFF failed.errno:%d,strerr:%s",errno,strerror(errno));
                 return false;
             } 
         }
@@ -593,7 +594,7 @@ void CaptureDevice::Uinit()
                 //取消参数start所指的映射内存起始地址
 			    if (-1 == munmap (m_buffers[i].start, m_buffers[i].length))
                 {
-                    printf("munmap failed.errno:%d,strerr:%s",errno,strerror(errno));
+                    log_printf(LOG_LEVEL_ERROR,"munmap failed.errno:%d,strerr:%s",errno,strerror(errno));
                 }
             }
         }
@@ -615,7 +616,7 @@ void CaptureDevice::Close()
     Uinit();
     if ( -1 == close (m_fd) )
 	{
-        printf("close failed.errno:%d,strerr:%s",errno,strerror(errno));
+        log_printf(LOG_LEVEL_ERROR,"close failed.errno:%d,strerr:%s",errno,strerror(errno));
         assert(0);
     }
     m_fd = -1;
@@ -623,7 +624,7 @@ void CaptureDevice::Close()
 
 void* CaptureDevice::DataCaptureProc(void* param)
 {
-    printf("Enter %s \n",__func__);
+    log_printf(LOG_LEVEL_ERROR,"Enter %s \n",__func__);
     CaptureDevice* cp = (CaptureDevice*)param;
     cp->loop();
     return NULL;

@@ -14,15 +14,17 @@ SRCDIR = ../source ../util
 EXCLUDESRC = 
 
 #Attached header file directory
-INCLUDEDIR = -I ./ -I/home/wanglx/my/tmp/av-lib/ffmpeg/include -I ../util
+INCLUDEDIR = -I ./ -I ../util -I ../include
 
 #Compiler and its parameters
 CC = g++
 CMYFLAGS = -Wall -rdynamic -std=c++11   
+#CMYFLAGS += -U TEST-MACRO_1  undefine macro
+#CMYFLAGS += -D TEST-MACRO_1  define macro 
 
 #Linker and its parameters
 #LD = ld
-LDFLAGS = -lpthread
+LDFLAGS = -lpthread -L ../lib -lx264
 
 #Parameters to generate dependency file 
 DEPENDFLAG = -MM
