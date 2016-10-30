@@ -445,7 +445,7 @@ void CaptureDevice::loop()
     }
     m_needStop = false;
     m_captureState = false;
-    printf("Leave %s \n",__func__);
+    log_printf(LOG_LEVEL_INFO,"Leave %s \n",__func__);
 }
 
 bool CaptureDevice::ReadFrame()
@@ -624,7 +624,7 @@ void CaptureDevice::Close()
 
 void* CaptureDevice::DataCaptureProc(void* param)
 {
-    log_printf(LOG_LEVEL_ERROR,"Enter %s \n",__func__);
+    log_printf(LOG_LEVEL_INFO,"Enter %s \n",__func__);
     CaptureDevice* cp = (CaptureDevice*)param;
     cp->loop();
     return NULL;
@@ -635,10 +635,15 @@ void CaptureDevice::SaveForamt(const video_cap_format_t& format)
     m_format.height = format.height;
     switch( format.pixelformat )
     {
-        case VIDEO_PIX_FMT_YUYV:
+        case VIDEO_PIX_FMT_YUV420:
+        {
+            m_format.pixelformat = V4L2_PIX_FMT_YUV420;
+            break;
+        }
+        case VIDEO_PIX_FMT_YUV422:
         {
             m_format.pixelformat = V4L2_PIX_FMT_YUYV;
-            break;
+            break;   
         }
         default:m_format.pixelformat = V4L2_PIX_FMT_YUYV;
     }

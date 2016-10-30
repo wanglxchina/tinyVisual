@@ -18,6 +18,7 @@ v4l2采集需要初始化步骤
 #include <string>
 #include <pthread.h>
 #include <map>
+#include "video_header.h"
 typedef enum {
 	IO_METHOD_READ,
 	IO_METHOD_MMAP,
@@ -27,9 +28,7 @@ struct v4l2buffer {
         void *                  start;
         size_t                  length;
 };
-typedef enum{
-    VIDEO_PIX_FMT_YUYV
-}video_cap_pixelformat;
+
 typedef void(*VIDEO_DATA_PROCESSER)(const void *);
 struct video_cap_format_t
 {

@@ -24,7 +24,7 @@ CMYFLAGS = -Wall -rdynamic -std=c++11
 
 #Linker and its parameters
 #LD = ld
-LDFLAGS = -lpthread -L ../lib -lx264
+LDFLAGS = -lpthread -L ../lib/x86 -lx264 -ldl
 
 #Parameters to generate dependency file 
 DEPENDFLAG = -MM

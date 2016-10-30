@@ -7,66 +7,22 @@
 #include <string.h>
 #include "log.h"
 #include "util.h"
-static int fbfd = -1;
-static char *fbp=NULL;
-static struct fb_var_screeninfo vinfo;
-static struct fb_fix_screeninfo finfo;
+#include "display_free_buffer.h"
+#include "x264_encoder.h"
 
-inline int clip(int value, int min, int max) {
-	return (value > max ? max : value < min ? min : value);
-}
+#define TV_VIDEO_WIDTH 640//640
+#define TV_VIDEO_HEIGHT 480//480
+
+display_free_buffer g_dfb;
+x264_encoder g_x264_encoder;
+
 static void process_image (const void * p){
-
-
-   // printf("one frame be capture,YUV --> RGB\n");
-	//ConvertYUVToRGB32
-
-	unsigned char* in=(unsigned char*)p;
-	int width=640;
-	int height=480;
-	int istride=1280;
-	int x,y,j;
-	int y0,u,y1,v,r,g,b;
-	long location=0;
-
-	for ( y = 100; y < height + 100; ++y) {
-		for (j = 0, x=100; j < width * 2 ; j += 4,x +=2) {
-
-			location = (x+vinfo.xoffset) * (vinfo.bits_per_pixel/8) +
-				(y+vinfo.yoffset) * finfo.line_length;
-
-			y0 = in[j];
-			u = in[j + 1] - 128;                
-			y1 = in[j + 2];        
-			v = in[j + 3] - 128;        
-
-			r = (298 * y0 + 409 * v + 128) >> 8;
-			g = (298 * y0 - 100 * u - 208 * v + 128) >> 8;
-			b = (298 * y0 + 516 * u + 128) >> 8;
-
-			fbp[ location + 0] = clip(b, 0, 255);
-			fbp[ location + 1] = clip(g, 0, 255);
-			fbp[ location + 2] = clip(r, 0, 255);    
-			fbp[ location + 3] = 255;    
-
-			r = (298 * y1 + 409 * v + 128) >> 8;
-			g = (298 * y1 - 100 * u - 208 * v + 128) >> 8;
-			b = (298 * y1 + 516 * u + 128) >> 8;
-
-			fbp[ location + 4] = clip(b, 0, 255);
-			fbp[ location + 5] = clip(g, 0, 255);
-			fbp[ location + 6] = clip(r, 0, 255);    
-			fbp[ location + 7] = 255;    
-		}
-		in +=istride;
-	}
+//	g_dfb.processer(p);
+   g_x264_encoder.Encode(p);
 }
 
 int main()
 {
-	//获取管理员权限
-	setuid(geteuid());
-	setgid(getegid());
 	//初始化log
 	char local_path[255] = {0};
 	getcwd(local_path,sizeof(local_path));
@@ -74,38 +30,33 @@ int main()
 	log_init(local_path);
 	log_printf(LOG_LEVEL_INFO,"tinyVisual start!\n");
     //打开freebuffer的fd
-    fbfd = open("/dev/fb0", O_RDWR);
-	if (fbfd==-1) {
-		log_printf(LOG_LEVEL_ERROR,"Error: cannot open framebuffer device.errno:%d,strerror:%s\n",errno,strerror(errno));
+    free_buffer_t fbt;
+	fbt.width = TV_VIDEO_WIDTH;
+	fbt.height = TV_VIDEO_HEIGHT;
+	if( !g_dfb.Open(fbt) )
+	{
 		_my_assert(__func__,__LINE__,0);
-		return -1;
+        return -1;
 	}
-    long screensize=0;
-	if (-1==ioctl(fbfd, FBIOGET_FSCREENINFO, &finfo)) {
-		log_printf(LOG_LEVEL_ERROR,"Error reading fixed information.\n");
-		_my_assert(__func__,__LINE__,0);
-		return -1;
-	}
-	if (-1==ioctl(fbfd, FBIOGET_VSCREENINFO, &vinfo)) {
-		log_printf(LOG_LEVEL_ERROR,"Error reading variable information.\n");
-		_my_assert(__func__,__LINE__,0);
-		return -1;
-	}
-	screensize = vinfo.xres * vinfo.yres * vinfo.bits_per_pixel / 8;
-    log_printf(LOG_LEVEL_INFO,"freebuf vinfo.xres:%d,vinfo.yres:%d ,imagesize:%ld\n",vinfo.xres,vinfo.yres,screensize);
-	fbp = (char *)mmap(NULL,screensize,PROT_READ | PROT_WRITE,MAP_SHARED ,fbfd, 0);
-	if ( fbp == MAP_FAILED ) {
-		log_printf(LOG_LEVEL_ERROR,"Error: failed to map framebuffer device to memory.\n");
-		_my_assert(__func__,__LINE__,0);
-		return -1;
-	}
-	memset(fbp, 0, screensize);
     log_printf(LOG_LEVEL_INFO,"freebuffer open and set success!\n");
+    //打开编码器
+    x264_encoder_t x264_encoder_param;
+    x264_encoder_param.width = TV_VIDEO_WIDTH;
+    x264_encoder_param.height = TV_VIDEO_HEIGHT;
+    x264_encoder_param.yuv = VIDEO_PIX_FMT_YUV420;
+    x264_encoder_param.filepath = local_path;
+    if( !g_x264_encoder.Open(x264_encoder_param) )
+    {
+        log_printf(LOG_LEVEL_ERROR,"x264 encoder  open and set failed!\n");
+        _my_assert(__func__,__LINE__,0);
+        return -1;
+    }
+    log_printf(LOG_LEVEL_INFO,"x264_encoder open and set success!\n");
     //打开cam
 	video_cap_format_t video_cap_format;
-	video_cap_format.width = 640;
-	video_cap_format.height = 480;
-	video_cap_format.pixelformat = VIDEO_PIX_FMT_YUYV;
+	video_cap_format.width = TV_VIDEO_WIDTH;
+	video_cap_format.height = TV_VIDEO_HEIGHT;
+	video_cap_format.pixelformat = VIDEO_PIX_FMT_YUV420;
 	video_cap_format.isinterlaced = false;
 	video_cap_format.v_ioMethod = IO_METHOD_MMAP;
 	video_cap_format.framesPerSecond = 25;
@@ -134,10 +85,10 @@ int main()
     log_printf(LOG_LEVEL_INFO,"device:%s close!\n",dev_name);
     device.Close();
     //关闭fb
-    if (-1 == munmap(fbp, screensize)) {
-		log_printf(LOG_LEVEL_INFO," Error: framebuffer device munmap() failed.\n");
-		return -1;
-	}    
-    close(fbfd);
+    g_dfb.Close();
+	log_printf(LOG_LEVEL_INFO,"close cam and leave!\n");
+    //关闭x264编码器
+    g_x264_encoder.Close();
+	usleep(1000*1000);
     return 0;
 }
