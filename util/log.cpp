@@ -53,7 +53,6 @@ void CLog::Init(const char* sPath)
 	m_fp = GetFilePointer(logDirectory);
 	if (m_fp != NULL)
 	{
-		printf("create file thread!\n");
 		if( 0 != pthread_create(&m_threadIDFile,NULL,ThreadFileWriteProc,this) ) 
 		{
 			printf("create file write thread failed,errno:%d\n",errno);
@@ -197,7 +196,7 @@ void* CLog::ThreadStdWriteProc(void* param)
 	CLog* pLog = (CLog*)param;
 	int nLogSize = 0;
 	char* pBuf = (char*)malloc(LOG_STD_BUFFER_SIZE);
-	memset(pBuf,0, LOG_FILE_BUFFER_SIZE);
+	memset(pBuf,0, LOG_STD_BUFFER_SIZE);
 	
 	while(!pLog->m_bStopLog)
 	{

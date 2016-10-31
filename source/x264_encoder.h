@@ -21,7 +21,7 @@ public:
     void Encode(const void* p);
 private:
     bool convert_param(const x264_encoder_t param);
-
+    static void x264_log_printf(void* unused,int level,const char* psz_fmt,va_list arg); 
     x264_param_t    m_x264_param;
     x264_picture_t  m_picture;
     x264_picture_t  m_picture_out;

@@ -97,7 +97,7 @@ void x264_encoder::Encode(const void* p)
     unsigned char* in=(unsigned char*)p;
     memcpy(m_picture.img.plane[0],in, m_luma_size);
     memcpy(m_picture.img.plane[1],in+m_luma_size, m_chroma_size);
-    memcpy(m_picture.img.plane[1],in+m_luma_size+m_chroma_size, m_chroma_size);
+    memcpy(m_picture.img.plane[2],in+m_luma_size+m_chroma_size, m_chroma_size);
     m_picture.i_pts = pts;
     printf("m_luma_size:%d m_chroma_size*2:%d\n",m_luma_size,m_chroma_size*2);
     int frame_size = x264_encoder_encode( m_x264, &nal, &i_nal, &m_picture, &m_picture_out );
@@ -132,6 +132,7 @@ bool x264_encoder::convert_param(const x264_encoder_t param)
     m_x264_param.b_vfr_input = 0;
     m_x264_param.b_repeat_headers = 1;
     m_x264_param.b_annexb = 1;
+    m_x264_param.pf_log = x264_log_printf;
 
     m_luma_size = param.width * param.height;
     m_chroma_size = m_luma_size / 4;
@@ -139,4 +140,36 @@ bool x264_encoder::convert_param(const x264_encoder_t param)
     strcpy(m_filepath,param.filepath);
     strcat(m_filepath,"/test.h264");
     return true;
+}
+
+void x264_encoder::x264_log_printf(void* unused,int level,const char* psz_fmt,va_list arg)
+{
+    int log_level = 0;
+    switch( level )
+    {
+        case X264_LOG_ERROR:
+            log_level = LOG_LEVEL_ERROR;
+            break;
+        case X264_LOG_WARNING:
+            log_level = LOG_LEVEL_WARNING;
+            break;
+        case X264_LOG_INFO:
+            log_level = LOG_LEVEL_INFO;
+            break;
+        case X264_LOG_DEBUG:
+            log_level = LOG_LEVEL_DEBUG;
+            break;
+        default:
+            log_level = LOG_LEVEL_ERROR;
+            break;
+    }
+    char buf[1024] = {0};
+    va_list arg2;
+    va_copy( arg2, arg );
+    int length = vsnprintf( buf, sizeof(buf), psz_fmt, arg2 );
+    va_end( arg2 );
+    if( length > 0 )
+    {
+        log_printf(log_level,"<x264 library>%s",buf);
+    }
 }

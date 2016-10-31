@@ -5,6 +5,7 @@ typedef struct free_buffer_t
 {
     unsigned int width;
     unsigned int height;
+    unsigned int yuv;
 }free_buffer_t;
 class display_free_buffer
 {
@@ -16,6 +17,7 @@ public:
     void processer(const void * p);
 private:
 inline int clip(int value, int min, int max);
+inline void show_One_Piexl(int location,int y,int u,int v);
     int     m_fbfd;
     char*   m_fbp;
     long    m_screensize;

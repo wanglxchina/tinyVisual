@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include "pthread.h"
 
-const int MAX_PATH_LENGTH = 255 * 2;
+const int MAX_PATH_LENGTH = 255 * 4;
 enum LOG_LEVEL
 {
 	LOG_LEVEL_SYS = 0,

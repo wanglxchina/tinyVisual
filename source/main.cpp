@@ -33,6 +33,7 @@ int main()
     free_buffer_t fbt;
 	fbt.width = TV_VIDEO_WIDTH;
 	fbt.height = TV_VIDEO_HEIGHT;
+    fbt.yuv = VIDEO_PIX_FMT_YUV420;
 	if( !g_dfb.Open(fbt) )
 	{
 		_my_assert(__func__,__LINE__,0);
