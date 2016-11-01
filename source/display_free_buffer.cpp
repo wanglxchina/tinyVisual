@@ -7,6 +7,7 @@
 #include <string.h>
 #include "log.h"
 #include "video_header.h"
+#include "util.h"
 
 inline int display_free_buffer::clip(int value, int min, int max) {
 	return (value > max ? max : value < min ? min : value);
@@ -74,34 +75,27 @@ void display_free_buffer::processer(const void * p)
 	int height=m_fbt.height;
 	if( m_fbt.yuv == VIDEO_PIX_FMT_YUV420 )
 	{
-		int x,y,j;
-		int y0,y1,y2,y3,u=0,v=0;
+		const long len = width * height;
+		unsigned char* yData = in;
+    	unsigned char* uData = &yData[len];
+    	unsigned char* vData = &uData[len >> 2];
 		long location=0;
-		int y_offset = 100;
-		int x_offset = 100;
-		for ( y = 0; y < height; y += 2) 
-		{
-			for( j = 0, x=0; j < width ; j += 2,x += 2 )
-			{
-				location = (x + x_offset + m_vinfo.xoffset) * (m_vinfo.bits_per_pixel/8) +
-					(y + y_offset + m_vinfo.yoffset) * m_finfo.line_length;
-				y0 = in[j + y * width];
-				y1 = in[j + 1 + y * width];
-				
-				u = in[j/2+height*width+y*width/4] - 128;
-				v = in[j/2+height*width+height*width/4+y*width/4] -128;
-				
-				show_One_Piexl(location,y0,u,v);
-				show_One_Piexl(location+4,y1,u,v);
 
-				location = (x + x_offset + m_vinfo.xoffset) * (m_vinfo.bits_per_pixel/8) +
-					(y + 1 + y_offset + m_vinfo.yoffset) * m_finfo.line_length;
-				y2 = in[j + (y+1) * width];
-				y3 = in[j + 1 + (y+1) * width];
-				show_One_Piexl(location+0,y2,u,v);
-				show_One_Piexl(location+4,y3,u,v);
+		int yIdx,uIdx,vIdx;
+		for (int i = 0;i < height;i++)
+		{
+        	for (int j = 0;j < width;j++)
+			{
+            	yIdx = i * width + j;
+            	uIdx = (i/2) * (width/2) + (j/2);
+            	vIdx = uIdx;
+
+				location = (j + 100 + m_vinfo.xoffset) * (m_vinfo.bits_per_pixel/8) +
+					(i + 100 + m_vinfo.yoffset) * m_finfo.line_length;
+
+				show_One_Piexl(location,(int)yData[yIdx],(int)uData[uIdx],(int)vData[vIdx]);
+				show_One_Piexl(location,(int)yData[yIdx],0,0);
 			}
-		//	in += width;
 		}
 	} 
 	else if( m_fbt.yuv == VIDEO_PIX_FMT_YUV422 )

@@ -83,6 +83,21 @@ bool CaptureDevice::Init()
         log_printf(LOG_LEVEL_ERROR,"%s is no video capture device\n",m_deviceName.c_str());
         return false;
     }
+
+    //所支持的视频采集yuv格式
+    struct v4l2_fmtdesc fmtdesc;
+    memset(&fmtdesc, 0, sizeof(fmtdesc));
+    fmtdesc.index = 0;
+    fmtdesc.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    while (ioctl(m_fd, VIDIOC_ENUM_FMT, &fmtdesc) == 0)
+    {
+            fmtdesc.index++;
+            printf("{ pixelformat = ''%c%c%c%c'', description = ''%s'' }\n",
+                    fmtdesc.pixelformat & 0xFF, (fmtdesc.pixelformat >> 8) & 0xFF, (fmtdesc.pixelformat >> 16) & 0xFF,
+                    (fmtdesc.pixelformat >> 24) & 0xFF, fmtdesc.description);
+    }
+
+
     //判断制定的IO方式是否支持
     switch( m_format.v_ioMethod )
     {
@@ -638,14 +653,21 @@ void CaptureDevice::SaveForamt(const video_cap_format_t& format)
         case VIDEO_PIX_FMT_YUV420:
         {
             m_format.pixelformat = V4L2_PIX_FMT_YUV420;
+            log_printf(LOG_LEVEL_INFO,"capture format:VIDEO_PIX_FMT_YUV420\n");
             break;
         }
         case VIDEO_PIX_FMT_YUV422:
         {
             m_format.pixelformat = V4L2_PIX_FMT_YUYV;
+            log_printf(LOG_LEVEL_INFO,"capture format:VIDEO_PIX_FMT_YUV422\n");
             break;   
         }
-        default:m_format.pixelformat = V4L2_PIX_FMT_YUYV;
+        default:
+        {
+            m_format.pixelformat = V4L2_PIX_FMT_YUYV;
+            log_printf(LOG_LEVEL_INFO,"capture format(default):VIDEO_PIX_FMT_YUV422\n");
+            break;
+        }
     }
     if( format.isinterlaced )
     {
