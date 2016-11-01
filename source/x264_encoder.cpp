@@ -98,8 +98,8 @@ void x264_encoder::Encode(const void* p)
     memcpy(m_picture.img.plane[0],in, m_luma_size);
     memcpy(m_picture.img.plane[1],in+m_luma_size, m_chroma_size);
     memcpy(m_picture.img.plane[2],in+m_luma_size+m_chroma_size, m_chroma_size);
-    m_picture.i_pts = pts;
-    printf("m_luma_size:%d m_chroma_size*2:%d\n",m_luma_size,m_chroma_size*2);
+    m_picture.i_pts = pts++;
+ //   printf("m_luma_size:%d m_chroma_size*2:%d\n",m_luma_size,m_chroma_size*2);
     int frame_size = x264_encoder_encode( m_x264, &nal, &i_nal, &m_picture, &m_picture_out );
     if( frame_size < 0)
     {

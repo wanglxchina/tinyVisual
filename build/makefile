@@ -14,7 +14,7 @@ SRCDIR = ../source ../util
 EXCLUDESRC = 
 
 #Attached header file directory
-INCLUDEDIR = -I ./ -I ../util -I ../include
+INCLUDEDIR = -I ./ -I ../util -I ../include/SDL2 -I ../include/x264
 
 #Compiler and its parameters
 CC = g++
@@ -24,7 +24,7 @@ CMYFLAGS = -Wall -rdynamic -std=c++11
 
 #Linker and its parameters
 #LD = ld
-LDFLAGS = -lpthread -L ../lib/x86 -lx264 -ldl
+LDFLAGS = -lpthread -L ../lib/x264/x64 -lx264 -ldl -L ../lib/SDL2/x64 -lSDL2 -lSDL2main
 
 #Parameters to generate dependency file 
 DEPENDFLAG = -MM

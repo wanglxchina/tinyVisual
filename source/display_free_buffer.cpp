@@ -88,14 +88,14 @@ void display_free_buffer::processer(const void * p)
 				y0 = in[j + y * width];
 				y1 = in[j + 1 + y * width];
 				
-//				u = in[j/2+(height-y)*width+y*width/4] - 128;
-//				v = in[j/2+((height-y)*width)+(int)(height*width/4)+y*width/4] -128;
+				u = in[j/2+height*width+y*width/4] - 128;
+				v = in[j/2+height*width+height*width/4+y*width/4] -128;
 				
 				show_One_Piexl(location,y0,u,v);
 				show_One_Piexl(location+4,y1,u,v);
 
 				location = (x + x_offset + m_vinfo.xoffset) * (m_vinfo.bits_per_pixel/8) +
-					(y + y_offset + m_vinfo.yoffset) * m_finfo.line_length;
+					(y + 1 + y_offset + m_vinfo.yoffset) * m_finfo.line_length;
 				y2 = in[j + (y+1) * width];
 				y3 = in[j + 1 + (y+1) * width];
 				show_One_Piexl(location+0,y2,u,v);

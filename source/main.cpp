@@ -10,15 +10,15 @@
 #include "display_free_buffer.h"
 #include "x264_encoder.h"
 
-#define TV_VIDEO_WIDTH 640//640
-#define TV_VIDEO_HEIGHT 480//480
+#define TV_VIDEO_WIDTH 800//640
+#define TV_VIDEO_HEIGHT 600//480
 
 display_free_buffer g_dfb;
 x264_encoder g_x264_encoder;
 
 static void process_image (const void * p){
-	g_dfb.processer(p);
-//   g_x264_encoder.Encode(p);
+    g_dfb.processer(p);
+    //g_x264_encoder.Encode(p);
 }
 
 int main()
