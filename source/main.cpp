@@ -17,8 +17,8 @@ display_free_buffer g_dfb;
 x264_encoder g_x264_encoder;
 
 static void process_image (const void * p){
-//	g_dfb.processer(p);
-   g_x264_encoder.Encode(p);
+	g_dfb.processer(p);
+//   g_x264_encoder.Encode(p);
 }
 
 int main()

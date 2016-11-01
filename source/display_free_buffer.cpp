@@ -75,28 +75,33 @@ void display_free_buffer::processer(const void * p)
 	if( m_fbt.yuv == VIDEO_PIX_FMT_YUV420 )
 	{
 		int x,y,j;
-		int y0,y1,y2,y3,u,v;
+		int y0,y1,y2,y3,u=0,v=0;
 		long location=0;
-		for ( y = 100; y < height + 100; ++y) 
+		int y_offset = 100;
+		int x_offset = 100;
+		for ( y = 0; y < height; y += 2) 
 		{
-			for( j = 0, x=100; j < width * 1.5 ; j += 6,x += 4 )
+			for( j = 0, x=0; j < width ; j += 2,x += 2 )
 			{
-				location = (x+m_vinfo.xoffset) * (m_vinfo.bits_per_pixel/8) +
-					(y+m_vinfo.yoffset) * m_finfo.line_length;
+				location = (x + x_offset + m_vinfo.xoffset) * (m_vinfo.bits_per_pixel/8) +
+					(y + y_offset + m_vinfo.yoffset) * m_finfo.line_length;
+				y0 = in[j + y * width];
+				y1 = in[j + 1 + y * width];
 				
-				y0 = in[j];
-				y1 = in[j+1];
-				y2 = in[j+2];
-				y3 = in[j+3];
-				u = in[j+(int)(height*width*1.5)];
-				v = in[j+(int)(height*width*1.5*1.25)];
+//				u = in[j/2+(height-y)*width+y*width/4] - 128;
+//				v = in[j/2+((height-y)*width)+(int)(height*width/4)+y*width/4] -128;
 				
 				show_One_Piexl(location,y0,u,v);
 				show_One_Piexl(location+4,y1,u,v);
-				show_One_Piexl(location+8,y2,u,v);
-				show_One_Piexl(location+12,y3,u,v);
+
+				location = (x + x_offset + m_vinfo.xoffset) * (m_vinfo.bits_per_pixel/8) +
+					(y + y_offset + m_vinfo.yoffset) * m_finfo.line_length;
+				y2 = in[j + (y+1) * width];
+				y3 = in[j + 1 + (y+1) * width];
+				show_One_Piexl(location+0,y2,u,v);
+				show_One_Piexl(location+4,y3,u,v);
 			}
-			in += (int)(width * 1.5);
+		//	in += width;
 		}
 	} 
 	else if( m_fbt.yuv == VIDEO_PIX_FMT_YUV422 )
