@@ -4,9 +4,11 @@
 #include <unistd.h>
 #include <string.h>
 #include "video_header.h"
+#include "util.h"
 x264_encoder::x264_encoder():
 m_luma_size(0),
 m_chroma_size(0),
+m_framerate(25),
 m_fd(NULL)
 {
 }
@@ -91,14 +93,15 @@ void x264_encoder::Encode(const void* p)
         log_printf(LOG_LEVEL_ERROR,"x264 is not init!\n");
         return;
     }
-    static int pts = 1;
+    static int pts = 0;
     x264_nal_t *nal;
     int i_nal;
     unsigned char* in=(unsigned char*)p;
+    pts += 1000/m_framerate*90;//90KHZ
     memcpy(m_picture.img.plane[0],in, m_luma_size);
     memcpy(m_picture.img.plane[1],in+m_luma_size, m_chroma_size);
     memcpy(m_picture.img.plane[2],in+m_luma_size+m_chroma_size, m_chroma_size);
-    m_picture.i_pts = pts++;
+    m_picture.i_pts = pts;
  //   printf("m_luma_size:%d m_chroma_size*2:%d\n",m_luma_size,m_chroma_size*2);
     int frame_size = x264_encoder_encode( m_x264, &nal, &i_nal, &m_picture, &m_picture_out );
     if( frame_size < 0)
@@ -107,7 +110,7 @@ void x264_encoder::Encode(const void* p)
     }
     else if( frame_size )
     {
-        printf("one frame size :%d \n",frame_size);
+        log_printf(LOG_LEVEL_INFO,"one frame size :%d dts:%lld pts:%lld\n",frame_size,m_picture_out.i_dts,m_picture_out.i_pts);
         if( !fwrite( nal->p_payload,frame_size,1,m_fd) )
         {
             log_printf(LOG_LEVEL_ERROR," write to file %s failed! errno:%d,strerror:%s\n",m_filepath,errno,strerror(errno));
@@ -136,6 +139,8 @@ bool x264_encoder::convert_param(const x264_encoder_t param)
 
     m_luma_size = param.width * param.height;
     m_chroma_size = m_luma_size / 4;
+    m_framerate = param.framerate;
+    _my_assert((char*)__func__,__LINE__,m_framerate!=0);
 
     strcpy(m_filepath,param.filepath);
     strcat(m_filepath,"/test.h264");

@@ -77,8 +77,8 @@ void display_free_buffer::processer(const void * p)
 	{
 		const long len = width * height;
 		unsigned char* yData = in;
-    	unsigned char* uData = &yData[len];
-    	unsigned char* vData = &uData[len >> 2];
+    	unsigned char* uData = &in[len];
+    	unsigned char* vData = &in[len*5/4];
 		long location=0;
 
 		int yIdx,uIdx,vIdx;
@@ -93,8 +93,8 @@ void display_free_buffer::processer(const void * p)
 				location = (j + 100 + m_vinfo.xoffset) * (m_vinfo.bits_per_pixel/8) +
 					(i + 100 + m_vinfo.yoffset) * m_finfo.line_length;
 
-				show_One_Piexl(location,(int)yData[yIdx],(int)uData[uIdx],(int)vData[vIdx]);
-				show_One_Piexl(location,(int)yData[yIdx],0,0);
+				show_One_Piexl(location,(int)yData[yIdx],(int)uData[uIdx]-128,(int)vData[vIdx]-128);
+			//	show_One_Piexl(location,(int)yData[yIdx],0,0);
 			}
 		}
 	} 

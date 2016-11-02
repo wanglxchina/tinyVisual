@@ -543,13 +543,13 @@ bool CaptureDevice::ReadFrame()
             if( m_realyuvformat == V4L2_PIX_FMT_YUV420 && m_format.pixelformat == V4L2_PIX_FMT_YUYV )
             {
                 memset(m_converBuffer,0,YUV_CONVERT_BUFFER_LEN);
-                ConvertYUYV422ToYUV420(m_converBuffer,(unsigned char*)m_buffers[buf.index].start);
+                ConvertYUV420ToYUYV422(m_converBuffer,(unsigned char*)m_buffers[buf.index].start);
                 m_format.processer  (m_converBuffer);
             }
             else if( m_realyuvformat == V4L2_PIX_FMT_YUYV && m_format.pixelformat == V4L2_PIX_FMT_YUV420 )
             {
                 memset(m_converBuffer,0,YUV_CONVERT_BUFFER_LEN);
-                ConvertYUV420ToYUYV422(m_converBuffer,(unsigned char*)m_buffers[buf.index].start);
+                ConvertYUYV422ToYUV420(m_converBuffer,(unsigned char*)m_buffers[buf.index].start);
                 m_format.processer  (m_converBuffer);
             }
 
@@ -761,14 +761,14 @@ void CaptureDevice::ConvertYUYV422ToYUV420(unsigned char* dst,unsigned char* src
     {
         for( int j = 0; j < width * 2; j += 4 )
         {
-            yData[i*width + j/2] = src[j];
-            yData[i*width + j/2 + 1] = src[j+2];
-            uData[i*width/4 + j/4] = src[j+1];
-            vData[i*width/4 + j/4] = src[j+3];
+            yData[i*width + j/2] = src[i*width*2 + j];
+            yData[i*width + j/2 + 1] = src[i*width*2 + j + 2];
+            uData[(i/2)*(width/2) + j/4] = src[i*width*2 + j + 1];
+            vData[(i/2)*(width/2) + j/4] = src[i*width*2 + j + 3];
         }
     }
 }
 void CaptureDevice::ConvertYUV420ToYUYV422(unsigned char* dst,unsigned char* src)
 {
-
+    log_printf(LOG_LEVEL_WARNING,"%s not complete!!!\n",__func__);
 }

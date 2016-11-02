@@ -18,7 +18,7 @@ x264_encoder g_x264_encoder;
 
 static void process_image (const void * p){
     g_dfb.processer(p);
-    //g_x264_encoder.Encode(p);
+    g_x264_encoder.Encode(p);
 }
 
 int main()
@@ -45,6 +45,7 @@ int main()
     x264_encoder_param.width = TV_VIDEO_WIDTH;
     x264_encoder_param.height = TV_VIDEO_HEIGHT;
     x264_encoder_param.yuv = VIDEO_PIX_FMT_YUV420;
+    x264_encoder_param.framerate = 25;
     x264_encoder_param.filepath = local_path;
     if( !g_x264_encoder.Open(x264_encoder_param) )
     {

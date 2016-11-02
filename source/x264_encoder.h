@@ -9,6 +9,7 @@ typedef struct x264_encoder_t
     unsigned int width;
     unsigned int height;
     unsigned int yuv;
+    int    framerate;
     char* filepath;/*for debug*/
 }x264_encoder_t;
 class x264_encoder
@@ -28,7 +29,7 @@ private:
     x264_t*         m_x264;
     int             m_luma_size;
     int             m_chroma_size;
-
+    int             m_framerate;
     /*FOR DEBUG*/
     FILE*       m_fd;
     char        m_filepath[255];
