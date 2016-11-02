@@ -15,7 +15,7 @@
 #include <unistd.h>
 #include "log.h"
 #define DEFAULT_DEVICE_NAME "/dev/video0"
-
+#define YUV_CONVERT_BUFFER_LEN 10*1024*1024
 CaptureDevice::CaptureDevice():
 m_deviceName(DEFAULT_DEVICE_NAME),
 m_lastError(""),
@@ -58,6 +58,14 @@ bool CaptureDevice::Open(const std::string deviceName,const video_cap_format_t& 
         }
     //保存采集相关参数设置，以备初始化设备用
     SaveForamt(format);
+
+    //YUV格式转换时的buffer
+    m_converBuffer = (unsigned char*)new char[YUV_CONVERT_BUFFER_LEN];
+    if( !m_converBuffer )
+    {
+        log_printf(LOG_LEVEL_ERROR,"%s:%d new memory failed:%d strerror:%s\n",__func__,__LINE__,errno,strerror(errno));
+        return false;
+    }
     return Init();
 }
 
@@ -85,18 +93,39 @@ bool CaptureDevice::Init()
     }
 
     //所支持的视频采集yuv格式
-    struct v4l2_fmtdesc fmtdesc;
-    memset(&fmtdesc, 0, sizeof(fmtdesc));
-    fmtdesc.index = 0;
-    fmtdesc.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    while (ioctl(m_fd, VIDIOC_ENUM_FMT, &fmtdesc) == 0)
-    {
-            fmtdesc.index++;
-            printf("{ pixelformat = ''%c%c%c%c'', description = ''%s'' }\n",
-                    fmtdesc.pixelformat & 0xFF, (fmtdesc.pixelformat >> 8) & 0xFF, (fmtdesc.pixelformat >> 16) & 0xFF,
-                    (fmtdesc.pixelformat >> 24) & 0xFF, fmtdesc.description);
-    }
+    GetSupportYuvFormat(m_fd,m_supportyuvformatmap);
 
+    //这是个学习程序，支持yuv420和yuv422,判断是否支持这两种格式，不支持是否可转换
+    if( m_supportyuvformatmap.find(V4L2_PIX_FMT_YUYV) == m_supportyuvformatmap.end() &&
+        m_supportyuvformatmap.find(V4L2_PIX_FMT_YUV420) == m_supportyuvformatmap.end() )
+    {
+        log_printf(LOG_LEVEL_ERROR,"device does not support yuv420 and yuyv422!\n");
+        return false;
+    }
+    if( m_format.pixelformat == V4L2_PIX_FMT_YUV420 )
+    {
+        m_realyuvformat = V4L2_PIX_FMT_YUV420;
+        if( m_supportyuvformatmap.find(V4L2_PIX_FMT_YUV420) == m_supportyuvformatmap.end() )
+        {
+            m_realyuvformat = V4L2_PIX_FMT_YUYV;
+            log_printf(LOG_LEVEL_WARNING,"device does not support YUV420,use YUYV422 to capture and convert to YUV420!\n");
+        }
+    }
+    else if( m_format.pixelformat == V4L2_PIX_FMT_YUYV )
+    {
+        m_realyuvformat = V4L2_PIX_FMT_YUYV;
+        if( m_supportyuvformatmap.find(V4L2_PIX_FMT_YUYV) == m_supportyuvformatmap.end() )
+        {
+            m_realyuvformat = V4L2_PIX_FMT_YUV420;
+            log_printf(LOG_LEVEL_WARNING,"device does not support YUYV422,use YUV420 to capture and convert to YUYV422!\n");
+        }
+    }
+    else
+    {
+        log_printf(LOG_LEVEL_ERROR,"device only support yuv420 and yuyv422!\n");
+        return false;
+    }
+    
 
     //判断制定的IO方式是否支持
     switch( m_format.v_ioMethod )
@@ -155,7 +184,7 @@ bool CaptureDevice::Init()
     fmt.type                = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     fmt.fmt.pix.width       = m_format.width;//cropcap.defrect.width;
     fmt.fmt.pix.height      = m_format.height;//cropcap.defrect.height;
-    fmt.fmt.pix.pixelformat = m_format.pixelformat;//V4L2_PIX_FMT_YUYV;
+    fmt.fmt.pix.pixelformat = m_realyuvformat;//V4L2_PIX_FMT_YUYV;
     fmt.fmt.pix.field       = m_field;//V4L2_FIELD_NONE;//V4L2_FIELD_INTERLACED;
     if ( -1 == ioctl(m_fd,VIDIOC_S_FMT,&fmt) )
     {
@@ -484,6 +513,7 @@ bool CaptureDevice::ReadFrame()
                     return false;
                 }
 		    }
+            //这个逻辑不维护，可能需要进行yuv格式转换
             m_format.processer (m_buffers[0].start);
         }
 	    break;
@@ -505,8 +535,23 @@ bool CaptureDevice::ReadFrame()
                 }
 			}
             assert (buf.index < m_bufferCount);
-
-	        m_format.processer  (m_buffers[buf.index].start);
+            //yuv格式转换
+            if( m_realyuvformat == m_format.pixelformat )
+            {
+                 m_format.processer  (m_buffers[buf.index].start);
+            }
+            if( m_realyuvformat == V4L2_PIX_FMT_YUV420 && m_format.pixelformat == V4L2_PIX_FMT_YUYV )
+            {
+                memset(m_converBuffer,0,YUV_CONVERT_BUFFER_LEN);
+                ConvertYUYV422ToYUV420(m_converBuffer,(unsigned char*)m_buffers[buf.index].start);
+                m_format.processer  (m_converBuffer);
+            }
+            else if( m_realyuvformat == V4L2_PIX_FMT_YUYV && m_format.pixelformat == V4L2_PIX_FMT_YUV420 )
+            {
+                memset(m_converBuffer,0,YUV_CONVERT_BUFFER_LEN);
+                ConvertYUV420ToYUYV422(m_converBuffer,(unsigned char*)m_buffers[buf.index].start);
+                m_format.processer  (m_converBuffer);
+            }
 
 		    if ( -1 == ioctl (m_fd, VIDIOC_QBUF, &buf) )
             {
@@ -543,7 +588,7 @@ bool CaptureDevice::ReadFrame()
                  }
             }
 		    assert (i < m_bufferCount);
-
+            //这个逻辑不维护，可能需要进行yuv格式转换
     		m_format.processer  ((void *) buf.m.userptr);
 
             if ( -1 == ioctl (m_fd, VIDIOC_QBUF, &buf) )
@@ -629,6 +674,11 @@ void CaptureDevice::Uinit()
 void CaptureDevice::Close()
 {
     Uinit();
+    if( m_converBuffer )
+    {
+        delete[] m_converBuffer;
+        m_converBuffer = NULL;
+    }
     if ( -1 == close (m_fd) )
 	{
         log_printf(LOG_LEVEL_ERROR,"close failed.errno:%d,strerr:%s",errno,strerror(errno));
@@ -653,19 +703,19 @@ void CaptureDevice::SaveForamt(const video_cap_format_t& format)
         case VIDEO_PIX_FMT_YUV420:
         {
             m_format.pixelformat = V4L2_PIX_FMT_YUV420;
-            log_printf(LOG_LEVEL_INFO,"capture format:VIDEO_PIX_FMT_YUV420\n");
+            log_printf(LOG_LEVEL_INFO,"capture set format:VIDEO_PIX_FMT_YUV420\n");
             break;
         }
         case VIDEO_PIX_FMT_YUV422:
         {
             m_format.pixelformat = V4L2_PIX_FMT_YUYV;
-            log_printf(LOG_LEVEL_INFO,"capture format:VIDEO_PIX_FMT_YUV422\n");
+            log_printf(LOG_LEVEL_INFO,"capture set format:VIDEO_PIX_FMT_YUV422\n");
             break;   
         }
         default:
         {
             m_format.pixelformat = V4L2_PIX_FMT_YUYV;
-            log_printf(LOG_LEVEL_INFO,"capture format(default):VIDEO_PIX_FMT_YUV422\n");
+            log_printf(LOG_LEVEL_INFO,"capture set format(default):VIDEO_PIX_FMT_YUV422\n");
             break;
         }
     }
@@ -679,4 +729,46 @@ void CaptureDevice::SaveForamt(const video_cap_format_t& format)
     }
     m_format.v_ioMethod = format.v_ioMethod;
     m_format.processer = format.processer;
+}
+
+void CaptureDevice::GetSupportYuvFormat(const int fd,std::map<int,std::string>& yuvmap)
+{
+    struct v4l2_fmtdesc fmtdesc;
+    memset(&fmtdesc, 0, sizeof(fmtdesc));
+    fmtdesc.index = 0;
+    fmtdesc.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    log_printf(LOG_LEVEL_INFO,"\n");
+    log_printf(LOG_LEVEL_INFO,"==================support yuv format==================\n");
+    while (ioctl(fd, VIDIOC_ENUM_FMT, &fmtdesc) == 0)
+    {
+            fmtdesc.index++;
+            log_printf(LOG_LEVEL_INFO,"{ pixelformat = ''%c%c%c%c'', description = ''%s'' }\n",
+                    fmtdesc.pixelformat & 0xFF, (fmtdesc.pixelformat >> 8) & 0xFF, (fmtdesc.pixelformat >> 16) & 0xFF,
+                    (fmtdesc.pixelformat >> 24) & 0xFF, fmtdesc.description);
+            yuvmap.insert(std::make_pair(fmtdesc.pixelformat,(char*)fmtdesc.description));
+    }
+    log_printf(LOG_LEVEL_INFO,"\n");
+}
+
+void CaptureDevice::ConvertYUYV422ToYUV420(unsigned char* dst,unsigned char* src)
+{
+    int width = m_format.width;
+    int height = m_format.height;
+    unsigned char* yData = dst;
+    unsigned char* uData = &dst[height*width];
+    unsigned char* vData = &dst[height*width*5/4];
+    for( int i = 0; i < height; ++i )
+    {
+        for( int j = 0; j < width * 2; j += 4 )
+        {
+            yData[i*width + j/2] = src[j];
+            yData[i*width + j/2 + 1] = src[j+2];
+            uData[i*width/4 + j/4] = src[j+1];
+            vData[i*width/4 + j/4] = src[j+3];
+        }
+    }
+}
+void CaptureDevice::ConvertYUV420ToYUYV422(unsigned char* dst,unsigned char* src)
+{
+
 }

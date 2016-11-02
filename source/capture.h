@@ -60,6 +60,9 @@ protected:
     bool InitMMap(unsigned int bufferSize);
     bool InitUserp(unsigned int bufferSize);
     static void* DataCaptureProc(void* param);
+    void ConvertYUYV422ToYUV420(unsigned char* dst,unsigned char* src);
+    void ConvertYUV420ToYUYV422(unsigned char* dst,unsigned char* src);
+    void GetSupportYuvFormat(const int fd,std::map<int,std::string>& yuvmap);
 private:
     std::string             m_deviceName;
     std::string             m_lastError;
@@ -71,5 +74,8 @@ private:
     unsigned int            m_field;
     pthread_t               m_threadId;
     video_cap_format_t      m_format;
+    unsigned int            m_realyuvformat;
+    unsigned char*          m_converBuffer;
+    std::map<int,std::string> m_supportyuvformatmap;
 };
 #endif
